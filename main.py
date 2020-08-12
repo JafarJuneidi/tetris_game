@@ -214,19 +214,61 @@ def draw_grid_lines(surface, grid, row=0, col=0):
     for j in range(len(grid[1])):
       pygame.draw.line(surface, (128,128,128), (s_x + j*block_size, s_y), (s_x + j*block_size, s_y + play_height))
 
-def clear_rows(grid, locked):
-    pass
+def clear_rows(grid, locked_positions):
+    inc = 0
+    for i in range(len(grid)-1, -1, -1):
+      if (0,0,0) not in grid[i]:
+        inc += 1
+        ind = i
+        for j in range(len(grid[i])):
+          try:
+            del locked_positions[(j, i)]
+          except:
+            continue 
 
-def draw_next_shape(shape, surface):
-    pass
+    if inc > 0:
+      for key in sorted(list(locked_positions), key=lambda x:x[1])[::-1]:
+        x, y = key
+        if y < ind:
+          new_key = (x, y + inc)
+          locked_positions[new_key] = locked_positions.pop(key)
 
-def draw_window(surface, grid):
+    return inc
+
+
+def draw_next_shape(piece, surface):
+    font = pygame.font.SysFont("comicsans", 30)
+    label = font.render("Next shape", 1, (255,255,255))
+    
+    l_x = top_left_x + play_width + 30
+    l_y = top_left_y + play_height/2 - 100
+    
+    surface.blit(label, (l_x + block_size//2, l_y))
+
+    format = piece.shape[piece.rotation % len(piece.shape)]
+
+    for row, line in enumerate(format):
+      for column, block in enumerate(line):
+        if block == '0':
+          pygame.draw.rect(surface, piece.color, (l_x + column*block_size, l_y + block_size + row*block_size, block_size, block_size), 0)
+
+    pygame.display.update()
+
+def draw_window(surface, grid, score=0):
     surface.fill((0,0,0))
     
     font = pygame.font.SysFont("comicsans", 60)
     label = font.render("Tetris", 1, (255,255,255))
 
     surface.blit(label, (top_left_x + play_width//2 - label.get_width()//2, 30))
+
+    font = pygame.font.SysFont("comicsans", 30)
+    label = font.render(f"Score: {score}", 1, (255,255,255))
+    
+    l_x = top_left_x + play_width + 30
+    l_y = top_left_y + play_height/2 - 100 
+
+    surface.blit(label, (l_x + 15, l_y + 190))
 
     for i in range(len(grid)):
       for j in range(len(grid[i])):
@@ -235,13 +277,13 @@ def draw_window(surface, grid):
     pygame.draw.rect(surface, (255,0,0), (top_left_x, top_left_y, play_width, play_height), 4)
 
     draw_grid_lines(surface, grid)
-    pygame.display.update()
+    #pygame.display.update()
 
 
 def main(win):
     
-    locked_position = {}
-    #grid = create_grid(locked_position)
+    locked_positions = {}
+    #grid = create_grid(locked_positions)
 
     change_piece = False
     run = True
@@ -250,13 +292,22 @@ def main(win):
     clock = pygame.time.Clock()
     fall_time = 0
     fall_speed = 0.27
+    level_time = 0
+    score = 0
 
     while run:
-      grid = create_grid(locked_position)
+      grid = create_grid(locked_positions)
 
       # timing and falling 
       fall_time += clock.get_rawtime()
+      level_time += clock.get_rawtime()
       clock.tick()
+
+      if level_time/1000 > 5:
+        level_time = 0
+        if fall_speed > 0.12:
+          fall_speed -= 0.005
+
       if fall_time/1000 > fall_speed:
         fall_time = 0
         current_piece.y += 1
@@ -297,14 +348,16 @@ def main(win):
       if change_piece:
         for point in piece_pos:
           p = (point[0], point[1])
-          locked_position[p] = current_piece.color
+          locked_positions[p] = current_piece.color
         current_piece = next_piece
         next_piece = get_shape()
         change_piece = False
+        score += clear_rows(grid, locked_positions) * 10
 
-      draw_window(win, grid)
+      draw_window(win, grid, score)
+      draw_next_shape(next_piece, win)
 
-      if check_lost(locked_position):
+      if check_lost(locked_positions):
         run = False
     pygame.display.quit()
 
