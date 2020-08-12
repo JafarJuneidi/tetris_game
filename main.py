@@ -163,20 +163,22 @@ def convert_shape_format(piece):
     format = piece.shape[piece.rotation % len(piece.shape)]
 
     for row, line in enumerate(format):
-      horiz = list(line)
-      for column, block in enumerate(horiz):
+      #horiz = list(line)
+      for column, block in enumerate(line):
         if block == '0':
           positions.append((piece.x + column, piece.y + row))
 
     for i, pos in enumerate(positions):
       positions[i] = (pos[0] - 2, pos[1] - 4)
 
+    return positions
 
-def valid_space(shape, grid):
+
+def valid_space(piece, grid):
     accepted_pos = [[(j, i) for j in range(10) if grid[i][j] == (0,0,0)] for i in range(20)]
     accepted_pos = [j for sub in accepted_pos for j in sub]
 
-    formatted = convert_shape_format(shape)
+    formatted = convert_shape_format(piece)
 
     for pos in formatted:
       if pos not in accepted_pos:
@@ -186,8 +188,8 @@ def valid_space(shape, grid):
     return True
 
 
-def check_lost(positions):
-  for pos in positions:
+def check_lost(locked_positions):
+  for pos in locked_positions:
     x, y = pos
     if y < 1:
       return True
@@ -203,14 +205,14 @@ def draw_text_middle(text, size, color, surface):
     pass
    
 
-def draw_grid(surface, grid, row=0, col=0):
+def draw_grid_lines(surface, grid, row=0, col=0):
     s_x = top_left_x
     s_y = top_left_y
 
     for i in range(len(grid)):
       pygame.draw.line(surface, (128,128,128), (s_x, s_y + i*block_size), (s_x + play_width, s_y + i*block_size))
-      for j in range(len(grid[i])):
-        pygame.draw.line(surface, (128,128,128), (s_x + j*block_size, s_y + i*block_size), (s_x + j*block_size, s_y + (i+1)*block_size))
+    for j in range(len(grid[1])):
+      pygame.draw.line(surface, (128,128,128), (s_x + j*block_size, s_y), (s_x + j*block_size, s_y + play_height))
 
 def clear_rows(grid, locked):
     pass
@@ -232,14 +234,14 @@ def draw_window(surface, grid):
 
     pygame.draw.rect(surface, (255,0,0), (top_left_x, top_left_y, play_width, play_height), 4)
 
-    draw_grid(surface, grid)
+    draw_grid_lines(surface, grid)
     pygame.display.update()
 
 
 def main(win):
     
     locked_position = {}
-    grid = create_grid(locked_position)
+    #grid = create_grid(locked_position)
 
     change_piece = False
     run = True
@@ -251,15 +253,17 @@ def main(win):
 
     while run:
       grid = create_grid(locked_position)
+
+      # timing and falling 
       fall_time += clock.get_rawtime()
       clock.tick()
-
       if fall_time/1000 > fall_speed:
         fall_time = 0
         current_piece.y += 1
         if not valid_space(current_piece, grid) and current_piece.y > 0:
           current_piece.y -= 1
           change_piece = True
+
 
       for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -283,16 +287,16 @@ def main(win):
             if not valid_space(current_piece, grid):
               current_piece.rotation -= 1
 
-      shape_pos = convert_shape_format(current_piece)
+      piece_pos = convert_shape_format(current_piece)
 
-      for i in range(len(shape_pos)):
-        x, y = shape_pos[i]
+      for point in piece_pos:
+        x, y = point
         if y > -1:
           grid[y][x] = current_piece.color
 
       if change_piece:
-        for pos in shape_pos:
-          p = (pos[0], pos[1])
+        for point in piece_pos:
+          p = (point[0], point[1])
           locked_position[p] = current_piece.color
         current_piece = next_piece
         next_piece = get_shape()
